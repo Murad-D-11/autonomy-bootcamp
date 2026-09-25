@@ -16,11 +16,12 @@ indexes look different. Fill values, gradients, and
 ``numpy.random.default_rng(index)`` all work.
 """
 
+import numpy
+
+import time
+
 from .abstract_camera import AbstractCamera
 from .frame import CameraFrame
-
-import numpy
-import time
 
 
 class SimCamera(AbstractCamera):
