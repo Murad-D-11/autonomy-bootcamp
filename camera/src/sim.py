@@ -16,9 +16,9 @@ indexes look different. Fill values, gradients, and
 ``numpy.random.default_rng(index)`` all work.
 """
 
-import numpy
-
 import time
+
+import numpy
 
 from .abstract_camera import AbstractCamera
 from .frame import CameraFrame
