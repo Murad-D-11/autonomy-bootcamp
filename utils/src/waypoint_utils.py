@@ -137,7 +137,8 @@ def sort_clockwise_sweep(
     if len(waypoints) <= 1:
         return list(waypoints)
 
-    centroid_lat = sum(waypoint.lat for waypoint in waypoints) / len(waypoints)
+    # hmmm, seems like the average lat/lon
+    centroid_lat = sum(waypoint.lat for waypoint in waypoints) / len(waypoints) 
     centroid_lon = sum(waypoint.lon for waypoint in waypoints) / len(waypoints)
 
     def bearing_from_centroid(waypoint: Coordinate) -> float:
@@ -148,6 +149,7 @@ def sort_clockwise_sweep(
         # clockwise, normalized to [0, 2*pi)
         return math.atan2(east, north) % TWO_PI
 
+    # sets the start bearing --> checks if its really close to 0.0 if there is home
     start_bearing = 0.0
     if home is not None and not math.isclose(
         math.hypot(*east_north_coordinate_offset_m(centroid_lat, centroid_lon, home.lat, home.lon)),

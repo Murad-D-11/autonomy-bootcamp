@@ -24,8 +24,9 @@ Graded by ``warg run utils grade-tests``: pass on the real code, 90% branch
 coverage, and fail on every broken copy in ``grader/mutants/``.
 """
 
-import pytest
+import math, pytest
 
+from src.constants import TWO_PI, EARTH_RADIUS_M
 from src.waypoint_utils import (
     east_north_coordinate_offset_m,
     parse_waypoints_file,
@@ -80,17 +81,136 @@ def write_to_tmp_waypoints_file(tmp_path, text):
             """,
             (Coordinate(1, 2, 3), [Coordinate(4, 5, 6)]),
         ),
+        (
+            """
+            """,
+            (None, [])
+        )
     ],
-    ids=["home-and-waypoints", "no-home", "comments-and-blank-lines"],
+    ids=["home-and-waypoints", "no-home", "comments-and-blank-lines", "empty-text"],
 )
 def test_parse_waypoints_file_success(tmp_path, text, expected):
     path = write_to_tmp_waypoints_file(tmp_path, text)
     assert parse_waypoints_file(path) == expected
 
 
-def test_placeholder():
-    # TODO(bootcamper): delete this and write real tests. It's only here so
-    # linter doesn't complain about unused imports before you start.
-    assert callable(east_north_coordinate_offset_m)
-    assert callable(parse_waypoints_file)
-    assert callable(sort_clockwise_sweep)
+@pytest.mark.parametrize(
+    ("text"),
+    [
+        (
+            """
+            # unnecessary hyphen (treats home as list)
+            home:
+                - {lat: 1, lon: 2, alt: 3}
+            
+            waypoints:
+                - {lat: 4, lon: 5, alt: 6}
+            """
+        ),
+        (
+            """
+            home: {lat: 1, lon: 2, alt: 3}
+
+            waypoints: {lat: 4, lon: 5, alt: 6}
+            """
+        ),
+        (
+            """
+            home: {lat: a, lon: b, alt: c}
+
+            waypoints:
+              - {lat: d, lon: e, alt: f}
+              - {lat: g, lon: h, alt: i}
+            """
+        ),
+        (
+            """
+            home: {lat: 1, lon: 2, alt: 3
+            
+            waypoints:
+              - {lat: 4, lon: 5, alt: 6}
+            """
+        ),
+        (
+            """
+            home: {lat: 1, lon: 2}
+            
+            waypoints:
+              - {lat: 3, lon: 6, alt: 3}
+            """
+        ),
+        (
+            """
+            home: {lat: -91, lon: 0, alt: 1}
+
+            waypoints:
+              - {lat: 92, lon: -180, alt: 3}
+            """
+        )
+    ],
+    ids=["home-is-list", "waypoints-is-single", "non-numerical-values", "missing-closing-bracket", "missed-alt-keys", "out-of-bounds"]
+)
+def test_parse_waypoints_file_invalid(tmp_path, text):
+    path = write_to_tmp_waypoints_file(tmp_path, text)
+    with pytest.raises(ValueError):
+        parse_waypoints_file(path)
+
+
+@pytest.mark.parametrize(
+    ("from_lat", "from_lon", "to_lat", "to_lon", "expected"),
+    [
+        (
+            # same spot, no difference
+            (20.0, 20.0, 20.0, 20.0, [0.0, 0.0])
+        ),
+        (
+            # same lat, different lon
+            (20.0, 0.0, 20.0, 30.0, [math.radians(30.0) * math.cos(math.radians(20.0)) * EARTH_RADIUS_M, 0.0])
+        ),
+        (
+            # different lat, same lon
+            (0.0, 40.0, 20.0, 40.0, [0.0, (math.radians(20.0) * EARTH_RADIUS_M)])
+        ),
+        (
+            # negative values
+            (-20.0, -12.0, -8.0, -49.0, [math.radians(-37.0) * math.cos(math.radians((-20 + -8.0) / 2)) * EARTH_RADIUS_M, (math.radians(12.0) * EARTH_RADIUS_M)])
+        )
+    ],
+    ids=["no-difference", "same-lat-diff-lon", "diff-lat-same-lon", "negative"]
+)
+def test_east_north_coordinate_offset_m_success(from_lat, from_lon, to_lat, to_lon, expected):
+    assert pytest.approx(east_north_coordinate_offset_m(from_lat, from_lon, to_lat, to_lon)) == expected
+
+
+@pytest.mark.parametrize(
+    ("waypoints", "home", "expected"),
+    [
+        (
+            # no waypoints or home
+            ([], None, [])
+        ),
+        (
+            # same/exactly one waypoint
+            ([Coordinate(1, 2, 3)], None, [Coordinate(1, 2, 3)])
+        ),
+        (
+            # waypoint same as home
+            ([Coordinate(1, 2, 3), Coordinate(1, 2, 3)], Coordinate(1, 2, 3), [Coordinate(1, 2, 3), Coordinate(1, 2, 3)])
+        ),
+        (
+            # home really close to the centroid
+            ([Coordinate(1, 2, 3), Coordinate(4, 5, 6)], Coordinate(2.5000001, 3.5000001, 2), [Coordinate(1, 2, 3), Coordinate(4, 5, 6)])
+        ),
+        (
+            # equal-bearing waypoints
+            ([Coordinate(1, 0, 0), Coordinate(2, 0, 0), Coordinate(9, 0, 0)], None, [Coordinate(9, 0, 0), Coordinate(2, 0, 0), Coordinate(1, 0, 0)])
+        ),
+        (
+            ([Coordinate(1, 0, 0), Coordinate(-1, 0, 0), Coordinate(0, 1, 0), Coordinate(0, -1, 0)], Coordinate(0.5, 0, 0), [Coordinate(1, 0, 0), Coordinate(0, 1, 0), Coordinate(-1, 0, 0), Coordinate(0, -1, 0)])
+        )
+    ],
+    ids=["no-waypoints", "one-waypoint", "waypoint-home-overlap", "centroid-close-to-home", "equal-bearing-waypoints", "reverse-reference"]
+)
+def test_sort_clockwise_sweep(waypoints, home, expected):
+    assert sort_clockwise_sweep(waypoints, home) == expected
+
