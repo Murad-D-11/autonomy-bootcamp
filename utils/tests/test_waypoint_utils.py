@@ -25,15 +25,16 @@ coverage, and fail on every broken copy in ``grader/mutants/``.
 """
 
 import math
+
 import pytest
 
 from src.constants import EARTH_RADIUS_M
+from src.types import Coordinate
 from src.waypoint_utils import (
     east_north_coordinate_offset_m,
     parse_waypoints_file,
     sort_clockwise_sweep,
 )
-from src.types import Coordinate
 
 # The helper and the test below are given to you.
 
